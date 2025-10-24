@@ -14,7 +14,7 @@ type FromSchema<T extends Fields> = {
     [K in keyof T]: T[K]['type'] extends keyof TypeMap ? TypeMap[T[K]['type']] : unknown;
 };
 
-export const runTests = <T extends Fields>(
+const runMetadataTests = <T extends Fields>(
     server: any,
     endpoint: string,
     {
@@ -39,12 +39,16 @@ export const runTests = <T extends Fields>(
         expect(Object.keys(item)).toEqual(fieldKeys);
 
         for (const [key, props] of Object.entries(fields)) {
-            expect(typeof item[key]).toBe(props['type']);
+            const requiredType = props['type'].includes('Array')
+                ? 'object'
+                : props['type'];
+            expect(typeof item[key]).toBe(requiredType);
             if (!('empty' in props && props['empty'] === true)) {
                 expect(item[key]).not.toBeNull();
             }
         }
     };
+    const capitalize = (str: string) => String(str).charAt(0).toUpperCase() + String(str).slice(1);
 
     describe(`GET /${queryType}`, async () => {
         validItems.forEach((item) => {
@@ -71,7 +75,7 @@ export const runTests = <T extends Fields>(
                 if (queryType === 'info') {
                     expect(status).toBe(404);
                     expect(body).toHaveProperty('error');
-                    expect(body.error).toBe(`${type} not found`);
+                    expect(body.error).toBe(`${capitalize(type)} not found`);
                 } else {
                     expect(status).toBe(200);
                     expect(Array.isArray(body)).toBe(true);
@@ -96,4 +100,6 @@ export const runTests = <T extends Fields>(
             });
         });
     });
-}
+};
+
+export default runMetadataTests;
