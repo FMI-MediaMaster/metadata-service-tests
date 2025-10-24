@@ -1,0 +1,18 @@
+{
+  "packages": [
+    "nodejs@22.9.0",
+    "eslint_d@14.3.0"
+  ],
+  "env": {
+    "DEVBOX_COREPACK_ENABLED": "true"
+  },
+  "shell": {
+    "init_hook": [
+      "pnpm install"
+    ],
+    "scripts": {
+      "build":   "pnpm -r run build",
+      "publish": "pnpm -r publish --access public"
+    }
+  }
+}
