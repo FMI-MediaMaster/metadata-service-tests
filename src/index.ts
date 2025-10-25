@@ -2,13 +2,14 @@ import request from 'supertest';
 import { describe, it, expect } from 'vitest';
 
 type TypeMap = {
-    string: string;
     number: number;
-    stringArray: string[];
+    string: string;
     object: Record<string, any>;
+    stringArray: string[];
+    objectArray: Record<string, any>[];
 };
 
-type Fields = Record<string, { type: keyof TypeMap }>;
+export type Fields = Record<string, { type: keyof TypeMap }>;
 
 type FromSchema<T extends Fields> = {
     [K in keyof T]: T[K]['type'] extends keyof TypeMap ? TypeMap[T[K]['type']] : unknown;
@@ -48,7 +49,7 @@ const runMetadataTests = <T extends Fields>(
             }
         }
     };
-    const capitalize = (str: string) => String(str).charAt(0).toUpperCase() + String(str).slice(1);
+    const capitalize = (str: string) => `${str.charAt(0).toUpperCase()}${str.slice(1)}`;
 
     describe(`GET /${queryType}`, async () => {
         validItems.forEach((item) => {
