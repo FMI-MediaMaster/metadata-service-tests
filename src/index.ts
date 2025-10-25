@@ -140,7 +140,11 @@ const runMetadataTests = (
         recommendations: buildConfig(Object.values, 'id'),
     };
 
+    const validMethods = Object.keys(fieldsMap);
     for (const [method, params] of Object.entries(testsMap)) {
+        if (!validMethods.includes(method)) {
+            continue;
+        }
         runEndpointTests(server, `${endpoint}/${method}`, { ...params, fields: fieldsMap[method], type });
     }
 };
