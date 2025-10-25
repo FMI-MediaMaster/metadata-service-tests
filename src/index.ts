@@ -15,7 +15,7 @@ type FromSchema<T extends Fields> = {
     [K in keyof T]: T[K]['type'] extends keyof TypeMap ? TypeMap[T[K]['type']] : unknown;
 };
 
-const runMetadataTests = <T extends Fields>(
+const runEndpointTests = <T extends Fields>(
     server: any,
     endpoint: string,
     {
@@ -101,6 +101,48 @@ const runMetadataTests = <T extends Fields>(
             });
         });
     });
+};
+
+
+const runMetadataTests = (
+    server: any,
+    endpoint: string,
+    {
+        validMap,
+        invalidMap,
+        fieldsMap,
+        type
+    }: {
+        validMap: object;
+        invalidMap: object;
+        fieldsMap: Record<string, Fields>;
+        type: string;
+    }
+) => {
+    const [first] = Object.entries(validMap);
+    const destroyQuery = (method: string, key: string, value: string) => ({
+        split: `${key[0]} ${key.slice(1)}=${value}`,
+        duplicate: `${key[0].repeat(2)}${key}=${value}`,
+    }[method] ?? `${key}=${value}`);
+
+    type ObjectFn = typeof Object.keys | typeof Object.values;
+    const buildConfig = (objectFn: ObjectFn, queryName: string) => {
+        return {
+            validItems: objectFn(validMap),
+            nonExistentItems: objectFn(invalidMap),
+            invalidQueries: ['split', 'duplicate'].map(m => destroyQuery(m, queryName, first[Number(queryName === 'id')])),
+        };
+    };
+
+    const testsMap: object = {
+        options: buildConfig(Object.keys, 'name'),
+        info: buildConfig(Object.values, 'id'),
+        recommendations: buildConfig(Object.values, 'id'),
+    };
+
+    for (const [method, params] of Object.entries(testsMap)) {
+        runEndpointTests(server, `${endpoint}/${method}`, { ...params, fields: fieldsMap[method], type });
+    }
 };
 
 export default runMetadataTests;
