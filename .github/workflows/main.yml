@@ -1,0 +1,73 @@
+name: CI/CD Workflow
+
+on: 
+  push:
+    branches: ['*']
+    tags: ['*']
+  pull_request:
+    branches: ['*']
+
+permissions:
+  checks: write
+  contents: write
+  packages: write
+  id-token: write
+  pull-requests: write
+
+jobs:
+  build-publish:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - type: 'Github'
+            registry-url: 'https://npm.pkg.github.com'
+            scope: '@FMI-MediaMaster'
+
+          - type: 'NPM'
+            registry-url: 'https://registry.npmjs.org'
+            scope: '@media-master'
+
+    name: Build & Push (${{ matrix.config.type }})
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Get NodeJS version
+        shell: bash
+        run: |
+          NODEJS_VERSION=$(jq -r '.packages[] | select(startswith("nodejs@")) | split("@")[1]' devbox.json)
+          echo "NODEJS_VERSION=$NODEJS_VERSION" >> $GITHUB_ENV
+              
+      - name: Get PNPM version
+        shell: bash
+        run: |
+          PNPM_VERSION=$(jq -r '.packageManager | split("@")[1]' package.json)
+          echo "PNPM_VERSION=$PNPM_VERSION" >> $GITHUB_ENV
+        
+      - name: Build npm package
+        uses: ./.github/actions/build
+        with:
+          nodejs-version: ${{ env.NODEJS_VERSION }}
+          pnpm-version: ${{ env.PNPM_VERSION }}
+          registry-url: ${{ matrix.config['registry-url'] }}
+          scope: ${{ matrix.config['scope'] }}
+
+      - name: Publish npm package to Github
+        if: startsWith(github.ref, 'refs/tags/') && matrix.config.type == 'Github'
+        uses: ./.github/actions/publish
+        with:
+          type: ${{ matrix.config['type'] }}
+          github-token: ${{ secrets.GITHUB_TOKEN }} 
+          node-auth-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish npm package to NPM
+        if: startsWith(github.ref, 'refs/tags/') && matrix.config.type == 'NPM'
+        uses: ./.github/actions/publish
+        with:
+          type: ${{ matrix.config['type'] }}
+          github-token: ${{ secrets.GITHUB_TOKEN }} 
+          node-auth-token: ${{ secrets.NPM_WRITE_PACKAGES_AUTOMATION_TOKEN }}
+

@@ -1,0 +1,44 @@
+name: 'Build npm package'
+
+description: 'Checks out the repository, sets up Node.js with pnpm, installs dependencies, and builds the package.'
+
+inputs:
+  nodejs-version:
+    description: "Node.js version to use"
+    required: true
+
+  pnpm-version:
+    description: "PNPM version to use"
+    required: true
+
+  registry-url:
+    description: "Registry URL to use"
+    required: true
+    
+  scope:
+    description: "Scope to use"
+    required: true 
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.nodejs-version }}
+        registry-url: ${{ inputs.registry-url }}
+        scope: ${{ inputs.scope }}
+
+    - name: Install pnpm 
+      uses: pnpm/action-setup@v4
+      with:
+        version: ${{ inputs.pnpm-version }}
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install
+
+    - name: Build package
+      shell: bash
+      run: pnpm run build
+

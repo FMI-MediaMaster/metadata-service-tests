@@ -1,0 +1,68 @@
+name: 'Publish npm package package to npm and GitHub Packages Registry'
+
+description: 'Builds the package, sets the version from the Git tag, creates a GitHub release, and publishes the package to the GitHub Packages Registry.'
+
+inputs:
+  type:
+    description: "Registry type to use for publishing"
+    required: true
+
+  github-token:
+    description: "Github token to use for publishing"
+    required: true
+
+  node-auth-token:
+    description: "Npm token to use for publishing"
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set Tag Name
+      shell: bash
+      run: |
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+        TAG_VERSION=${TAG_NAME#v}
+        echo "TAG_VERSION=$TAG_VERSION" >> $GITHUB_ENV
+
+    - name: Set package version
+      shell: bash
+      run: pnpm version ${{ env.TAG_VERSION }} --no-git-tag-version
+    
+    - name: Get package name
+      shell: bash
+      run: |
+        PACKAGE_NAME=$(pnpm pkg get name | tr -d '"')
+        echo "PACKAGE_NAME=$PACKAGE_NAME" >> $GITHUB_ENV
+
+    - name: Publish package to NPM 
+      if: ${{ inputs.type == 'NPM' }}
+      shell: bash
+      run: |
+        pnpm pkg set name="@media-master/${{ env.PACKAGE_NAME }}"
+        pnpm pkg set publishConfig.registry="https://registry.npmjs.org/"
+        pnpm publish --access public --no-git-checks
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.node-auth-token }}
+
+    - name: Publish package to Github
+      if: ${{ inputs.type == 'Github' }}
+      shell: bash
+      run: |
+        pnpm pkg set name="@FMI-MediaMaster/${{ env.PACKAGE_NAME }}"
+        pnpm pkg set publishConfig.registry="https://npm.pkg.github.com/"
+        pnpm publish --no-git-checks
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.node-auth-token }}
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      if: ${{ inputs.type == 'Github' }}
+      with:
+        tag_name: ${{ env.TAG_NAME }}
+        name: Release ${{ env.TAG_NAME }}
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+
