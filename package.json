@@ -1,13 +1,13 @@
 {
-  "name": "<NAME>",
-  "description": "Description for package <NAME>",
+  "name": "metadata-service-tests",
+  "description": "Tests for external services which provide metadata",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "license": "MIT",
   "packageManager": "pnpm@10.18.3",
   "type": "module",
   "repository": {
-    "url": "<REPO_URL>"
+    "url": "https://github.com/FMI-MediaMaster/metadata-service-tests.git"
   },
   "keywords": [],
   "scripts": {
@@ -18,8 +18,11 @@
   "devDependencies": {
     "@eslint/js": "^9.37.0",
     "@types/node": "^24.7.2",
+    "@types/supertest": "^6.0.3",
     "eslint": "^9.37.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.1"
+    "typescript-eslint": "^8.46.1",
+    "supertest": "^7.1.4",
+    "vitest": "^4.0.3"
   }
 }
