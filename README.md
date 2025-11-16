@@ -1,4 +1,5 @@
-# Tests for external services which provide metadata
+# metadata-service-tests
+Tests for external services which provide metadata
 
 > [!IMPORTANT]
 > If you are using npm packages from GitHub, you also need to add the <code>.npmrc</code>
