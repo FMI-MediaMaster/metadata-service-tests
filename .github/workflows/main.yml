@@ -22,15 +22,17 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - type: 'Github'
+          - type: 'GitHub'
             registry-url: 'https://npm.pkg.github.com'
             scope: '@FMI-MediaMaster'
+            publish-args: ""
 
           - type: 'NPM'
             registry-url: 'https://registry.npmjs.org'
             scope: '@media-master'
+            publish-args: "--access public"
 
-    name: Build & Push (${{ matrix.config.type }})
+    name: Build & Publish (${{ matrix.config.type }})
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -55,19 +57,69 @@ jobs:
           registry-url: ${{ matrix.config['registry-url'] }}
           scope: ${{ matrix.config['scope'] }}
 
-      - name: Publish npm package to Github
-        if: startsWith(github.ref, 'refs/tags/') && matrix.config.type == 'Github'
+      - name: Set config secrets
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: echo "NODE_AUTH_TOKEN=${{ matrix.config.type == 'Github' && secrets.GITHUB_TOKEN || secrets.NPM_WRITE_PACKAGES_AUTOMATION_TOKEN }}" >> $GITHUB_ENV
+
+      - name: Publish npm package
+        if: startsWith(github.ref, 'refs/tags/')
         uses: ./.github/actions/publish
         with:
           type: ${{ matrix.config['type'] }}
+          publish-args: ${{ matrix.config['publish-args'] }}
+          registry-url: ${{ matrix.config['registry-url'] }}
+          scope: ${{ matrix.config['scope'] }}
           github-token: ${{ secrets.GITHUB_TOKEN }} 
-          node-auth-token: ${{ secrets.GITHUB_TOKEN }}
+          node-auth-token: ${{ env.NODE_AUTH_TOKEN }}
 
-      - name: Publish npm package to NPM
-        if: startsWith(github.ref, 'refs/tags/') && matrix.config.type == 'NPM'
-        uses: ./.github/actions/publish
+  create-github-release:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    needs: build-publish
+    steps:
+      - name: Set Tag Name
+        shell: bash
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          TAG_VERSION=${TAG_NAME#v}
+          echo "TAG_VERSION=$TAG_VERSION" >> $GITHUB_ENV
+
+      - name: Download GitHub link
+        uses: actions/download-artifact@v4
         with:
-          type: ${{ matrix.config['type'] }}
-          github-token: ${{ secrets.GITHUB_TOKEN }} 
-          node-auth-token: ${{ secrets.NPM_WRITE_PACKAGES_AUTOMATION_TOKEN }}
+          name: publish-link-GitHub
+          path: ./links/github
 
+      - name: Read GitHub link
+        id: github-link
+        shell: bash
+        run: |
+          GITHUB_LINK=$(cat ./links/github/publish-link.txt)
+          echo "github-link=$GITHUB_LINK" >> $GITHUB_OUTPUT
+
+      - name: Download NPM link
+        uses: actions/download-artifact@v4
+        with:
+          name: publish-link-NPM
+          path: ./links/npm
+
+      - name: Read NPM link
+        id: npm-link
+        shell: bash
+        run: |
+          NPM_LINK=$(cat ./links/npm/publish-link.txt)
+          echo "npm-link=$NPM_LINK" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: Release ${{ env.TAG_NAME }}
+          generate_release_notes: true
+          body: |
+            **GitHub**: ${{ steps.github-link.outputs.github-link }}
+            **NPM**: ${{ steps.npm-link.outputs.npm-link }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

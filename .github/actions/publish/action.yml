@@ -1,14 +1,27 @@
-name: 'Publish npm package package to npm and GitHub Packages Registry'
+name: 'Publish npm package package to NPM/GitHub Packages Registry'
 
-description: 'Builds the package, sets the version from the Git tag, creates a GitHub release, and publishes the package to the GitHub Packages Registry.'
+description: 'Builds the package, sets the version from the Git tag, creates a GitHub release, and publishes the package to the NPM/GitHub Packages Registry.'
 
 inputs:
+  publish-args:
+    description: "Adds extra args for 'pnpm publish' command"
+    required: false
+    default: ""
+
   type:
-    description: "Registry type to use for publishing"
+    description: "Registry type to use (GitHub/NPM)"
     required: true
 
+  registry-url:
+    description: "Registry URL to use"
+    required: true
+      
+  scope:
+    description: "Scope to use"
+    required: true 
+
   github-token:
-    description: "Github token to use for publishing"
+    description: "Github token"
     required: true
 
   node-auth-token:
@@ -36,33 +49,38 @@ runs:
         PACKAGE_NAME=$(pnpm pkg get name | tr -d '"')
         echo "PACKAGE_NAME=$PACKAGE_NAME" >> $GITHUB_ENV
 
-    - name: Publish package to NPM 
-      if: ${{ inputs.type == 'NPM' }}
+    - name: Publish package
       shell: bash
       run: |
-        pnpm pkg set name="@media-master/${{ env.PACKAGE_NAME }}"
-        pnpm pkg set publishConfig.registry="https://registry.npmjs.org/"
-        pnpm publish --access public --no-git-checks
+        pnpm pkg set name="${{ inputs.scope }}/${{ env.PACKAGE_NAME }}"
+        pnpm pkg set publishConfig.registry="${{ inputs.registry-url }}"
+        PUBLISH_ARGS="${{ inputs.publish-args }}"
+        pnpm publish --no-git-checks $PUBLISH_ARGS
       env:
         NODE_AUTH_TOKEN: ${{ inputs.node-auth-token }}
 
-    - name: Publish package to Github
-      if: ${{ inputs.type == 'Github' }}
+    - name: Get publish link
       shell: bash
-      run: |
-        pnpm pkg set name="@FMI-MediaMaster/${{ env.PACKAGE_NAME }}"
-        pnpm pkg set publishConfig.registry="https://npm.pkg.github.com/"
-        pnpm publish --no-git-checks
       env:
-        NODE_AUTH_TOKEN: ${{ inputs.node-auth-token }}
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        CLEAN_SCOPE="${{ inputs.scope }}"
+        CLEAN_SCOPE="${CLEAN_SCOPE:1}"
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      if: ${{ inputs.type == 'Github' }}
+        if [[ "${{ inputs.registry-url }}" == *"npm.pkg.github.com"* ]]; then
+          RELEASE_LINK=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /orgs/${CLEAN_SCOPE}/packages/npm/${{ env.PACKAGE_NAME }}/versions \
+            --jq ".[] | select(.name == \"${{ env.TAG_VERSION }}\") | .html_url")
+        else
+          RELEASE_LINK="https://www.npmjs.com/package/${{ inputs.scope }}/${{ env.PACKAGE_NAME }}/v/${{ env.TAG_VERSION }}"
+        fi
+
+        echo "$RELEASE_LINK" > publish-link.txt
+
+    - name: Upload publish link
+      uses: actions/upload-artifact@v4
       with:
-        tag_name: ${{ env.TAG_NAME }}
-        name: Release ${{ env.TAG_NAME }}
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
-
+        name: publish-link-${{ inputs.type }}
+        path: publish-link.txt

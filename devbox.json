@@ -18,7 +18,8 @@
       "if [ \"$PACKAGE_NAME\" != \"$TEMPLATE_NAME\" ]; then grep -q '\"name\": \"<NAME>\"' package.json && sed -i \"s|<NAME>|$PACKAGE_NAME|g\" package.json; grep -q '\"url\": \"<REPO_URL>\"' package.json && sed -i \"s|<REPO_URL>|$REPO_URL|g\" package.json; grep -q 'Description for package' package.json && echo -e \"\\n!! Please remember to change the project description in package.json !!\" >&2; fi"
     ],
     "scripts": {
-      "pull:template": "git fetch $TEMPLATE_NAME && git rebase $TEMPLATE_NAME/main"
+      "template:pull": "git fetch $TEMPLATE_NAME && git rebase $TEMPLATE_NAME/main",
+      "template:autorebase": "git fetch $TEMPLATE_NAME && git rebase $TEMPLATE_NAME/main -s recursive -X ours"
     }
   }
 }
